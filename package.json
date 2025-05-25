@@ -15,5 +15,6 @@
     "express": "^5.1.0",
     "puppeteer": "^24.9.0"
   },
-  "description": ""
+  "description": "",
+  "devDependencies": {}
 }

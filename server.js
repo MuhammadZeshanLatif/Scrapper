@@ -2,12 +2,15 @@ const express = require("express");
 const puppeteer = require("puppeteer");
 const path = require("path");
 const cors = require("cors");
+require("dotenv").config(); // Load env vars
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://127.0.0.1:5500';
+const HEADLESS = process.env.HEADLESS === 'true';
 
 app.use(cors({
-  origin: 'http://127.0.0.1:5500',
+  origin: FRONTEND_ORIGIN,
   methods: ['GET', 'POST'],
 }));
 
@@ -29,9 +32,11 @@ app.get("/search", async (req, res) => {
   try {
     console.log("🌐 Launching Puppeteer...");
     const browser = await puppeteer.launch({
-      headless: false,
+      headless: HEADLESS,
       defaultViewport: null,
-      args: ["--start-maximized"],
+      args: HEADLESS
+        ? ["--no-sandbox", "--disable-setuid-sandbox"]
+        : ["--start-maximized"],
     });
 
     const page = await browser.newPage();
@@ -50,7 +55,6 @@ app.get("/search", async (req, res) => {
     console.log("⏳ Waiting for the output component...");
     await page.waitForSelector(".user-info", { timeout: 10000 }).catch(() => {});
 
-    // Perform scrolling
     let scrollsRemaining = 10;
     while (scrollsRemaining > 0) {
       console.log(`🔄 Scrolling down - ${7 - scrollsRemaining} of 6...`);
@@ -63,7 +67,6 @@ app.get("/search", async (req, res) => {
       scrollsRemaining -= 1;
     }
 
-    // Check existence of required selectors
     const hasUserInfo = await page.$('.user-info') !== null;
     const hasProfileMedia = await page.$('.profile-media-list') !== null;
 
@@ -71,17 +74,15 @@ app.get("/search", async (req, res) => {
     let profileMediaData = [];
 
     if (!hasUserInfo && !hasProfileMedia) {
-      console.log("⚠️ Neither .user-info nor .profile-media-list found. Checking for error message...");
+      console.log("⚠️ No content found. Checking for error...");
       const errorMessageData = await page.$$eval('.error-message__text', (elements) =>
         elements.map(el => el.textContent.trim())
       );
 
       if (errorMessageData.length > 0) {
-        console.log("❌ Error message found.");
-        res.write(`data: ${JSON.stringify({ message: "Error message found", error: errorMessageData })}\n\n`);
+        res.write(`data: ${JSON.stringify({ message: "Error", error: errorMessageData })}\n\n`);
       } else {
-        console.log("❌ No recognizable content found.");
-        res.write(`data: ${JSON.stringify({ message: "No recognizable content found on the page." })}\n\n`);
+        res.write(`data: ${JSON.stringify({ message: "No content found" })}\n\n`);
       }
 
       res.end();
@@ -106,10 +107,10 @@ app.get("/search", async (req, res) => {
 
     if (newUserInfo.length > 0 || newProfileMedia.length > 0) {
       res.write(`data: ${JSON.stringify({
-        message: "New data chunk received",
+        message: "New data chunk",
         data: [...newUserInfo, ...newProfileMedia]
       })}\n\n`);
-      console.log("✅ Sending new data chunk to client...");
+      console.log("✅ Sent new data to client.");
       [...newUserInfo, ...newProfileMedia].forEach(data => scrapedData.add(data));
     } else {
       console.log("⚠️ No new data to send.");
