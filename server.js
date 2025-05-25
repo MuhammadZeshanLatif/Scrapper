@@ -1,20 +1,26 @@
+require("dotenv").config(); // Load env vars from .env file
+
 const express = require("express");
 const puppeteer = require("puppeteer");
 const path = require("path");
 const cors = require("cors");
-require("dotenv").config(); // Load env vars
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://127.0.0.1:5500';
-const HEADLESS = process.env.HEADLESS === 'true';
 
-app.use(cors({
-  origin: FRONTEND_ORIGIN,
-  methods: ['GET', 'POST'],
-}));
+const PORT = process.env.PORT || 3000;
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://127.0.0.1:5500";
+const HEADLESS = process.env.HEADLESS === "true";
+
+app.use(
+  cors({
+    origin: FRONTEND_ORIGIN,
+    methods: ["GET", "POST"],
+  })
+);
 
 app.use(express.static(path.join(__dirname, "public")));
+
+// (Baaki code jaisa pehle hai)
 
 let lastHeight = 0;
 let scrapedData = new Set();
@@ -63,20 +69,20 @@ app.get("/search", async (req, res) => {
       }, lastHeight);
 
       lastHeight += 500;
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      await new Promise((resolve) => setTimeout(resolve, 3000));
       scrollsRemaining -= 1;
     }
 
-    const hasUserInfo = await page.$('.user-info') !== null;
-    const hasProfileMedia = await page.$('.profile-media-list') !== null;
+    const hasUserInfo = (await page.$(".user-info")) !== null;
+    const hasProfileMedia = (await page.$(".profile-media-list")) !== null;
 
     let userInfoData = [];
     let profileMediaData = [];
 
     if (!hasUserInfo && !hasProfileMedia) {
       console.log("⚠️ No content found. Checking for error...");
-      const errorMessageData = await page.$$eval('.error-message__text', (elements) =>
-        elements.map(el => el.textContent.trim())
+      const errorMessageData = await page.$$eval(".error-message__text", (elements) =>
+        elements.map((el) => el.textContent.trim())
       );
 
       if (errorMessageData.length > 0) {
@@ -91,27 +97,27 @@ app.get("/search", async (req, res) => {
     }
 
     if (hasUserInfo) {
-      userInfoData = await page.$$eval('.user-info', (elements) =>
-        elements.map(el => el.outerHTML)
-      );
+      userInfoData = await page.$$eval(".user-info", (elements) => elements.map((el) => el.outerHTML));
     }
 
     if (hasProfileMedia) {
-      profileMediaData = await page.$$eval('.profile-media-list', (elements) =>
-        elements.map(el => el.outerHTML)
+      profileMediaData = await page.$$eval(".profile-media-list", (elements) =>
+        elements.map((el) => el.outerHTML)
       );
     }
 
-    const newUserInfo = userInfoData.filter(data => !scrapedData.has(data));
-    const newProfileMedia = profileMediaData.filter(data => !scrapedData.has(data));
+    const newUserInfo = userInfoData.filter((data) => !scrapedData.has(data));
+    const newProfileMedia = profileMediaData.filter((data) => !scrapedData.has(data));
 
     if (newUserInfo.length > 0 || newProfileMedia.length > 0) {
-      res.write(`data: ${JSON.stringify({
-        message: "New data chunk",
-        data: [...newUserInfo, ...newProfileMedia]
-      })}\n\n`);
+      res.write(
+        `data: ${JSON.stringify({
+          message: "New data chunk",
+          data: [...newUserInfo, ...newProfileMedia],
+        })}\n\n`
+      );
       console.log("✅ Sent new data to client.");
-      [...newUserInfo, ...newProfileMedia].forEach(data => scrapedData.add(data));
+      [...newUserInfo, ...newProfileMedia].forEach((data) => scrapedData.add(data));
     } else {
       console.log("⚠️ No new data to send.");
     }
