@@ -13,7 +13,7 @@ const HEADLESS = process.env.HEADLESS === "true";
 
 app.use(
   cors({
-    origin: FRONTEND_ORIGIN,
+    origin: "http://127.0.0.1:5500",
     methods: ["GET", "POST"],
   })
 );
