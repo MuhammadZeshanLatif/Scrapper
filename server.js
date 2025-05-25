@@ -1,32 +1,13 @@
-require("dotenv").config(); // Load env vars from .env file
-
-const express = require("express");
-const puppeteer = require("puppeteer");
-const path = require("path");
-const cors = require("cors");
-
-const app = express();
-
-const PORT = process.env.PORT || 3000;
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || "http://127.0.0.1:5500";
-const HEADLESS = process.env.HEADLESS === "true";
-
-app.use(
-  cors({
-    origin: FRONTEND_ORIGIN,
-    methods: ["GET", "POST"],
-  })
-);
-
-app.use(express.static(path.join(__dirname, "public")));
-
-// (Baaki code jaisa pehle hai)
+const chromium = require("chrome-aws-lambda");
+const puppeteer = require("puppeteer-core");
 
 let lastHeight = 0;
 let scrapedData = new Set();
 
-app.get("/search", async (req, res) => {
-  const username = req.query.username || "";
+module.exports = async (req, res) => {
+  const { username } = req.query;
+  const HEADLESS = process.env.HEADLESS === "true";
+
   if (!username) {
     return res.status(400).send("Please provide a username in the query string.");
   }
@@ -36,34 +17,23 @@ app.get("/search", async (req, res) => {
   res.setHeader("Connection", "keep-alive");
 
   try {
-    console.log("🌐 Launching Puppeteer...");
     const browser = await puppeteer.launch({
-      headless: HEADLESS,
-      defaultViewport: null,
-      args: HEADLESS
-        ? ["--no-sandbox", "--disable-setuid-sandbox"]
-        : ["--start-maximized"],
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath,
+      headless: chromium.headless,
     });
 
     const page = await browser.newPage();
-    console.log("🌐 Opening anonyig.com...");
     await page.goto("https://anonyig.com/en/", { waitUntil: "networkidle2" });
 
-    console.log("⏳ Waiting for search input field...");
     await page.waitForSelector(".search.search-form__input", { timeout: 5000 });
-
-    console.log(`🖊 Typing username: ${username}`);
     await page.type(".search.search-form__input", username);
-
-    console.log("🔍 Clicking search button...");
     await page.click(".search-form__button");
-
-    console.log("⏳ Waiting for the output component...");
     await page.waitForSelector(".user-info", { timeout: 10000 }).catch(() => {});
 
     let scrollsRemaining = 10;
     while (scrollsRemaining > 0) {
-      console.log(`🔄 Scrolling down - ${7 - scrollsRemaining} of 6...`);
       await page.evaluate((scrollPos) => {
         window.scrollTo(0, scrollPos);
       }, lastHeight);
@@ -80,7 +50,6 @@ app.get("/search", async (req, res) => {
     let profileMediaData = [];
 
     if (!hasUserInfo && !hasProfileMedia) {
-      console.log("⚠️ No content found. Checking for error...");
       const errorMessageData = await page.$$eval(".error-message__text", (elements) =>
         elements.map((el) => el.textContent.trim())
       );
@@ -97,7 +66,9 @@ app.get("/search", async (req, res) => {
     }
 
     if (hasUserInfo) {
-      userInfoData = await page.$$eval(".user-info", (elements) => elements.map((el) => el.outerHTML));
+      userInfoData = await page.$$eval(".user-info", (elements) =>
+        elements.map((el) => el.outerHTML)
+      );
     }
 
     if (hasProfileMedia) {
@@ -116,10 +87,7 @@ app.get("/search", async (req, res) => {
           data: [...newUserInfo, ...newProfileMedia],
         })}\n\n`
       );
-      console.log("✅ Sent new data to client.");
       [...newUserInfo, ...newProfileMedia].forEach((data) => scrapedData.add(data));
-    } else {
-      console.log("⚠️ No new data to send.");
     }
 
     res.write(`data: ${JSON.stringify({ message: "✅ Crawling complete." })}\n\n`);
@@ -130,8 +98,4 @@ app.get("/search", async (req, res) => {
     res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
     res.end();
   }
-});
-
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-});
+};
