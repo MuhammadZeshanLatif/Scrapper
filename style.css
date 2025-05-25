@@ -1,0 +1,11 @@
+.col-md-4.mb-2 {
+    img{
+        height:300px;
+        
+    }
+    video{
+        height:300px;
+        width:100%;
+        
+    }
+}
