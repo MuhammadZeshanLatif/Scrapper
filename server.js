@@ -55,7 +55,8 @@ app.get("/search", async (req, res) => {
     await page.waitForSelector(".user-info", { timeout: 10000 }).catch(() => { });
 
     // Perform scrolling
-    let scrollsRemaining = 10;
+    // let scrollsRemaining = 10;
+    let scrollsRemaining = 1;
     while (scrollsRemaining > 0) {
       console.log(`🔄 Scrolling down - ${7 - scrollsRemaining} of 6...`);
       await page.evaluate((scrollPos) => {
