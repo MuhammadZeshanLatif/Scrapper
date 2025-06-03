@@ -36,7 +36,11 @@ app.get("/search", async (req, res) => {
 
     const page = await browser.newPage();
     console.log("🌐 Opening anonyig.com...");
-    await page.goto("https://anonyig.com/en/", { waitUntil: "networkidle2" });
+    await page.goto("https://anonyig.com/en/", {
+      waitUntil: "networkidle2",
+      timeout: 60000 // 60 seconds
+    });
+
 
     console.log("⏳ Waiting for search input field...");
     await page.waitForSelector(".search.search-form__input", { timeout: 5000 });
@@ -48,7 +52,7 @@ app.get("/search", async (req, res) => {
     await page.click(".search-form__button");
 
     console.log("⏳ Waiting for the output component...");
-    await page.waitForSelector(".user-info", { timeout: 10000 }).catch(() => {});
+    await page.waitForSelector(".user-info", { timeout: 10000 }).catch(() => { });
 
     // Perform scrolling
     let scrollsRemaining = 10;
